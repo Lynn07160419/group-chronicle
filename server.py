@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local group archive. Python standard library only."""
 import argparse
+import hashlib
 import json
 import re
 import sqlite3
@@ -16,6 +17,7 @@ from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent
 DB = ROOT / 'data' / 'archive.sqlite3'
+ENTRY_ENABLED = False
 DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
 def normalize(value):
@@ -35,13 +37,23 @@ def initialize():
     with connect() as con:
         con.execute('CREATE TABLE IF NOT EXISTS records (id INTEGER PRIMARY KEY, name TEXT NOT NULL, semester TEXT NOT NULL, weekday TEXT NOT NULL, source_row INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
         con.execute('CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)')
-        if not con.execute("SELECT 1 FROM metadata WHERE key='imported'").fetchone():
-            rows = json.loads((ROOT / 'data' / 'initial.json').read_text())
-            con.executemany('INSERT INTO records(name,semester,weekday,source_row) VALUES (:name,:semester,:weekday,:source_row)', rows)
-            con.execute("INSERT INTO metadata VALUES ('imported', '1')")
+        columns = {r['name'] for r in con.execute('PRAGMA table_info(records)')}
+        for name, definition in [('leader', "TEXT NOT NULL DEFAULT ''"), ('is_new', 'INTEGER NOT NULL DEFAULT 0')]:
+            if name not in columns:
+                con.execute(f'ALTER TABLE records ADD COLUMN {name} {definition}')
+        raw = (ROOT / 'data' / 'initial.json').read_bytes()
+        version = hashlib.sha256(raw).hexdigest()
+        current = con.execute("SELECT value FROM metadata WHERE key='seed_version'").fetchone()
+        if not current or current['value'] != version:
+            rows = json.loads(raw)
+            # Refresh imported history while preserving locally entered records.
+            con.execute('DELETE FROM records WHERE source_row IS NOT NULL')
+            con.executemany('INSERT INTO records(name,semester,weekday,source_row,leader,is_new) VALUES (:name,:semester,:weekday,:source_row,:leader,:is_new)', rows)
+            con.execute("INSERT OR REPLACE INTO metadata VALUES ('seed_version', ?)", (version,))
+            con.execute("INSERT OR REPLACE INTO metadata VALUES ('imported', '1')")
 
 def all_records(con):
-    return [dict(r) for r in con.execute('SELECT * FROM records ORDER BY semester DESC, id DESC')]
+    return [dict(r) for r in con.execute('SELECT * FROM records ORDER BY semester DESC, id ASC')]
 
 def conflicts(name, rows):
     keys = aliases(name)
@@ -50,11 +62,11 @@ def conflicts(name, rows):
 def export_xlsx(rows):
     """Generate a real XLSX; inline strings keep user names from becoming formulas."""
     ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
-    values = [['小团名称', '学期', '活动时间']] + [[r['name'], r['semester'], r['weekday']] for r in rows]
+    values = [['小团名称', '学期', '活动时间', '团长名字']] + [[r['name'], r['semester'], r['weekday'], r.get('leader', '')] for r in rows]
     sheet_rows = []
     for index, row in enumerate(values, 1):
         cells = []
-        for col, value in zip('ABC', row):
+        for col, value in zip('ABCD', row):
             clean = ''.join(c for c in str(value) if c in '\t\n\r' or 0x20 <= ord(c) <= 0xD7FF or 0xE000 <= ord(c) <= 0xFFFD or 0x10000 <= ord(c) <= 0x10FFFF)
             cells.append(f'<c r="{col}{index}" s="{1 if index == 1 else 0}" t="inlineStr"><is><t xml:space="preserve">{escape(clean)}</t></is></c>')
         sheet_rows.append(f'<row r="{index}" ht="24" customHeight="1">{"".join(cells)}</row>')
@@ -64,7 +76,7 @@ def export_xlsx(rows):
         'xl/workbook.xml': f'<workbook xmlns="{ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="小团编年史" sheetId="1" r:id="rId1"/></sheets></workbook>',
         'xl/_rels/workbook.xml.rels': '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
         'xl/styles.xml': f'<styleSheet xmlns="{ns}"><fonts count="2"><font><sz val="12"/><name val="等线"/></font><font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="等线"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2355DC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>',
-        'xl/worksheets/sheet1.xml': f'<worksheet xmlns="{ns}"><dimension ref="A1:C{len(values)}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="55" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="16" customWidth="1"/></cols><sheetData>{"".join(sheet_rows)}</sheetData><autoFilter ref="A1:C{len(values)}"/></worksheet>',
+        'xl/worksheets/sheet1.xml': f'<worksheet xmlns="{ns}"><dimension ref="A1:D{len(values)}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="55" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="16" customWidth="1"/><col min="4" max="4" width="36" customWidth="1"/></cols><sheetData>{"".join(sheet_rows)}</sheetData><autoFilter ref="A1:D{len(values)}"/></worksheet>',
     }
     output = BytesIO()
     with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
@@ -73,6 +85,8 @@ def export_xlsx(rows):
     return output.getvalue()
 
 def add_record(payload):
+    if not ENTRY_ENABLED:
+        return 403, {'error': '新小团录入暂未开放。'}
     if not isinstance(payload, dict):
         return 400, {'error': '录入内容格式不正确。'}
     values = [payload.get(k, '') for k in ('name', 'semester', 'weekday')]

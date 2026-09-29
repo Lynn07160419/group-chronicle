@@ -17,21 +17,21 @@
       <section class="archive" aria-labelledby="queryTitle">
         <div class="sectionhead"><h2 id="queryTitle">查找小团</h2><div class="archiveActions"><span id="range" class="muted">正在读取档案</span><button id="exportExcel" class="quiet" type="button">导出全部 Excel</button></div></div>
         <p id="exportStatus" role="status" aria-live="polite" hidden></p>
-        <div class="filters"><label class="searchlabel">团名关键词<input id="search" type="search" placeholder="输入团名，例如：彩虹团" autocomplete="off"></label><div class="filterrow"><label>学期<select id="semesterFilter"><option value="">全部学期</option></select></label><label>活动时间<select id="dayFilter"><option value="">全部星期</option></select></label><button id="reset" class="quiet" type="button">重置筛选</button></div></div>
+        <div class="filters"><label class="searchlabel">团名或团长<input id="search" type="search" placeholder="输入团名或团长名字" autocomplete="off"></label><div class="filterrow"><label>学期<select id="semesterFilter"><option value="">全部学期</option></select></label><label>活动时间<select id="dayFilter"><option value="">全部星期</option></select></label><button id="reset" class="quiet" type="button">重置筛选</button></div></div>
         <div class="resulthead"><p id="resultCount" role="status">正在加载…</p><span class="muted">按学期从新到旧</span></div>
-        <div class="tablewrap"><table><thead><tr><th scope="col">小团名称</th><th scope="col">学期</th><th scope="col">活动时间</th></tr></thead><tbody id="results"></tbody></table></div>
-        <div id="empty" class="empty" hidden><strong>没有找到对应的小团</strong><p>试试更短的团名，或调整学期和星期。</p></div>
+        <div class="tablewrap"><table><thead><tr><th scope="col">小团名称</th><th scope="col">学期</th><th scope="col">活动时间</th><th scope="col">团长名字</th></tr></thead><tbody id="results"></tbody></table></div>
+        <div id="empty" class="empty" hidden><strong>没有找到对应的小团</strong><p>试试更短的团名或团长名字，或调整学期和星期。</p></div>
         <div class="pagination"><button id="prev" class="quiet" type="button">上一页</button><span id="pageInfo"></span><button id="next" class="quiet" type="button">下一页</button></div>
       </section>
-      <aside class="entry" aria-labelledby="entryTitle"><div class="entrytop"><span class="eyebrow">续写编年史</span><h2 id="entryTitle">录入新小团</h2><p>先查重，再把新名字记下来。</p></div>
-        <form id="entryForm"><label for="newName">小团名称 <span class="required">*</span></label><input id="newName" name="name" placeholder="给小团取个新名字" required maxlength="100" autocomplete="off"><p class="hint">多个别名可用 / 分隔，每个别名都会查重。</p><div id="nameStatus" class="nameStatus" role="status" aria-live="polite">输入团名后自动查重</div>
+      <aside class="entry" aria-labelledby="entryTitle"><div class="entrytop"><span class="eyebrow">续写编年史</span><h2 id="entryTitle">录入新小团</h2><p>录入暂未开放，仍可查询和导出档案。</p></div>
+        <form id="entryForm"><fieldset disabled aria-label="新小团录入暂未开放"><label for="newName">小团名称 <span class="required">*</span></label><input id="newName" name="name" placeholder="给小团取个新名字" required maxlength="100" autocomplete="off"><p class="hint">多个别名可用 / 分隔，每个别名都会查重。</p><div id="nameStatus" class="nameStatus" role="status" aria-live="polite">录入暂未开放</div>
           <label for="year">学年 <span class="required">*</span></label><select id="year" required></select>
           <div class="formrow"><label>学期 <span class="required">*</span><select id="term"><option value="上">上学期</option><option value="下">下学期</option></select></label><label>活动时间 <span class="required">*</span><select id="newDay" required><option value="">选择星期</option></select></label></div>
-          <button id="save" class="primary" type="submit" disabled>查重并录入 <span aria-hidden="true">＋</span></button><div id="saveStatus" role="status" aria-live="polite"></div>
-        </form><div class="entrynote">历史上使用过的团名不能再次录入。查重忽略空格、英文字母大小写及全角／半角差异。</div>
+          <button id="save" class="primary" type="submit" disabled>暂未开放</button><div id="saveStatus" role="status" aria-live="polite"></div>
+        </fieldset></form><div class="entrynote">历史上使用过的团名不能再次录入。查重忽略空格、英文字母大小写及全角／半角差异。</div>
       </aside>
     </div>
-    <footer><span>数据来源：团名查重库（小团编年史）</span></footer>
+    <footer><span>数据来源：带团长名字版</span></footer>
   </main>
 </body>
 </html>

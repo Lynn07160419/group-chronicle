@@ -3,6 +3,7 @@ const days = ['周一','周二','周三','周四','周五','周六','周日'];
 const normalize = s => s.normalize('NFKC').toLowerCase().replace(/[\s\p{Cf}]/gu, '');
 let records = [], page = 1, ready = false, saving = false;
 const pageSize = 12;
+const entryEnabled = false;
 $('exportExcel').onclick=async()=>{
   const button=$('exportExcel'), status=$('exportStatus');
   button.disabled=true;button.textContent='正在导出…';status.hidden=true;
@@ -34,6 +35,7 @@ function duplicateMatches(name) {
   return records.filter(r=>r.name.split(/[/／]/).some(x=>keys.includes(normalize(x))));
 }
 function validateName() {
+  if(!entryEnabled){$('save').disabled=true;$('nameStatus').textContent='录入暂未开放';return;}
   const name=$('newName').value.trim(), status=$('nameStatus'), found=duplicateMatches(name);
   status.replaceChildren(); status.className='nameStatus';
   const valid=Boolean(normalize(name)) && name.split(/[/／]/).every(x=>normalize(x));
@@ -49,13 +51,13 @@ function validateName() {
 }
 function render() {
   const q=normalize($('search').value), semester=$('semesterFilter').value, day=$('dayFilter').value;
-  const filtered=records.filter(r=>(!q||normalize(r.name).includes(q))&&(!semester||r.semester===semester)&&(!day||r.weekday===day));
+  const filtered=records.filter(r=>(!q||normalize(r.name+' '+(r.leader||'')).includes(q))&&(!semester||r.semester===semester)&&(!day||r.weekday===day));
   const pages=Math.max(1,Math.ceil(filtered.length/pageSize));page=Math.min(page,pages);
   $('resultCount').textContent=`找到 ${filtered.length} 条记录`;
   $('results').replaceChildren();
   filtered.slice((page-1)*pageSize,page*pageSize).forEach(r=>{
     const tr=document.createElement('tr');
-    [r.name,r.semester,r.weekday].forEach((v,i)=>{const td=document.createElement('td');if(i===2){const badge=document.createElement('span');badge.className='day';badge.textContent=v;td.append(badge);}else td.textContent=v;tr.append(td);});
+    [r.name,r.semester,r.weekday,r.leader||'待补充'].forEach((v,i)=>{const td=document.createElement('td');if(i===2){const badge=document.createElement('span');badge.className='day';badge.textContent=v;td.append(badge);}else td.textContent=v;tr.append(td);});
     $('results').append(tr);
   });
   $('empty').hidden=filtered.length!==0;
@@ -77,7 +79,7 @@ $('reset').onclick=()=>{['search','semesterFilter','dayFilter'].forEach(id=>$(id
 $('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
 $('newName').oninput=()=>{$('saveStatus').textContent='';validateName();};
 $('entryForm').onsubmit=async e=>{
-  e.preventDefault();if($('save').disabled)return;
+  e.preventDefault();if(!entryEnabled||$('save').disabled)return;
   saving=true;validateName();$('saveStatus').textContent='正在查重并保存…';
   const year=Number($('year').value), semester=`${String(year%100).padStart(2,'0')}-${String((year+1)%100).padStart(2,'0')}${$('term').value}学期`;
   try {
